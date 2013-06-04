@@ -1,6 +1,6 @@
 <?php
 /**
- * Internationalisation file for extension InlineDiff.
+ * Internationalisation file for extension AdvancedEmailNotification.
  *
  * @file
  * @ingroup Extensions
@@ -9,6 +9,7 @@
 $messages = array();
 
 $messages['ru'] = array(
+    'AdvancedEmailNotification-newArticle' => 'Изменением является создание страницы.',
 	'emailsubject' => 'Изменения затрагивающие ',
     'enotif_body' => 'Здравствуйте, $WATCHINGUSERNAME,<br><br>
 
