@@ -218,7 +218,7 @@ class AdvancedEmailNotification
             $res = $dbw->select(array('watchlist'),
                 array('wl_user'),
                 array(
-                    'wl_user != ' . intval($editor->getID()),
+//                    'wl_user != ' . intval($editor->getID()),
                     'wl_namespace' => $title->getNamespace(),
                     'wl_title' => $title->getDBkey(),
                     'wl_notificationtimestamp IS NULL',
