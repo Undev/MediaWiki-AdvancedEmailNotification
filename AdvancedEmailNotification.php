@@ -23,6 +23,7 @@ class AdvancedEmailNotification
     private $dbw;
     private $watchers;
     private $sendMail;
+    private $notifyType;
 
     function __construct()
     {
@@ -65,6 +66,8 @@ class AdvancedEmailNotification
         $usersNotifiedOnCategoryChanges = $this->getUsersNotifiedOnCategoryChanges($editor, $title);
         $usersNotifiedOnPageChanges = $this->getUsersNotifiedOnPageChanges($editor, $title);
 
+        $this->notifyType = empty($usersNotifiedOnCategoryChanges) ? 'page' : 'category';
+
         $usersNotified = array_merge($usersNotifiedOnCategoryChanges, $usersNotifiedOnPageChanges);
         $usersNotified = array_unique($usersNotified);
 
@@ -85,7 +88,7 @@ class AdvancedEmailNotification
 
     public function onArticleSaveComplete(&$article, &$editor)
     {
-        global $wgSitename;
+        global $wgSitename, $wgServer;
 
         $title = $article->getTitle();
         $pageTitle = $title->getText();
@@ -97,10 +100,21 @@ class AdvancedEmailNotification
             $newid = $newRevision->getId();
             $oldid = $oldRevision->getId();
 
-            $editorLink = Linker::userLink($editor->getId(), $editor->getName());
-            $pageLink = Linker::link($title);
-            $newPageDiffLink = Html::element('a', array('href' => $title->getCanonicalUrl("diff={$newid}&oldid={$oldid}")), 'текущими');
+            $userPage = Title::makeTitle(NS_USER, $editor->getName());
+            $editorLink = Linker::link($userPage, $editor->getName(), array('class' => 'mw-userlink'), array(), 'http');
+            $pageLink = Linker::link($title, $title->getText(), array(), array(), 'http');
+
+            $oldPageLink = ($this->notifyType === 'category' ? 'категории' : 'статьи') . ' ';
+            $oldPageLink .= Linker::link($oldRevision->getTitle(), $oldRevision->getTitle()->getText(), array(), array(), 'http');
+
+            $newPageDiffLink = Html::element('a', array('href' => $title->getCanonicalUrl("diff={$newid}&oldid={$oldid}")), 'изменения');
             $allPageDiffLink = Html::element('a', array('href' => $title->getCanonicalUrl('action=history')), 'остальными');
+            $watchListEditLink = Html::element('a', array('href' => $wgServer . '/' . 'Special:Править_список_наблюдения'), 'здесь');
+
+            $categories = $this->getCategories($title);
+            $categories = implode(', ', $categories);
+
+            $revisionComment = $newRevision->getComment();
 
             if ($oldRevision == $newRevision) {
                 $diff = wfMessage('AdvancedEmailNotification-newArticle')->inContentLanguage()->plain();
@@ -113,14 +127,19 @@ class AdvancedEmailNotification
                     if ($watchingUser instanceof User) {
                         $keys = array(
                             '$WATCHINGUSERNAME' => $watchingUser->getName(),
-                            '$TIMESTAMP' => date('j F'),
+                            '$TIMESTAMP' => date('j F H:i'),
                             '$PAGETITLE' => $pageTitle,
                             '$PAGE' => $pageLink,
+                            '$PAGEEDITOR' => $editor->getName(),
                             '$PAGEEDITOR_WIKI' => $editorLink,
                             '$SITENAME' => $wgSitename,
                             '$DIFF' => $diff,
                             '$NEWPAGE' => $newPageDiffLink,
                             '$ALLPAGECHANGES' => $allPageDiffLink,
+                            '$CATEGORIES' => $categories,
+                            '$COMMENT' => $revisionComment,
+                            '$WATCHLISTEDIT' => $watchListEditLink,
+                            '$PAGEOLD' => $oldPageLink,
                         );
 
                         $this->sendMail = true;
@@ -274,7 +293,7 @@ class AdvancedEmailNotification
 
         $to = new MailAddress($watchingUser);
         $from = $this->getMailFrom();
-        $subject = $this->getMailSubject($title);
+        $subject = $this->getMailSubject($keys);
         $body = $this->getMailBody($keys);
 
         $status = UserMailer::send($to, $from, $subject, $body, null, 'text/html; charset=UTF-8');
@@ -288,16 +307,16 @@ class AdvancedEmailNotification
         return strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
     }
 
-    private function getMailSubject(Title $title)
+    private function getMailSubject(array $keys)
     {
-        return wfMessage('emailsubject')->inContentLanguage()->plain() . $title->getText();
+        return strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
     }
 
     private function getMailFrom()
     {
-        global $wgPasswordSender, $wgPasswordSenderName;
-        return new MailAddress($wgPasswordSender,
-            isset($wgPasswordSenderName) ? $wgPasswordSenderName : 'WikiAdmin');
+        global $wgSitename, $wgPasswordSender;
+
+        return new MailAddress($wgPasswordSender, $wgSitename);
     }
 }
 

@@ -10,12 +10,16 @@ $messages = array();
 
 $messages['ru'] = array(
     'AdvancedEmailNotification-newArticle' => 'Изменением является создание страницы.',
-	'emailsubject' => 'Изменения затрагивающие ',
-    'enotif_body' => 'Здравствуйте, $WATCHINGUSERNAME,<br><br>
-
-$TIMESTAMP участником $PAGEEDITOR_WIKI была изменена страница &laquo;$PAGE&raquo; проекта &laquo;$SITENAME&raquo; с именем.<br><br>
+	'emailsubject' => '$PAGETITLE изменена $PAGEEDITOR [$SITENAME]',
+    'enotif_body' => '
+Автор: $PAGEEDITOR_WIKI.<br>
+Статья: $PAGE.<br>
+Новая ревизия: $TIMESTAMP. Посмотреть $NEWPAGE.<br>
+Категории статьи: $CATEGORIES.<br><br>
 
 $DIFF<br><br>
 
-Вы можете ознакомиться с $NEWPAGE изменениями, а также со всеми $ALLPAGECHANGES.',
+Вы получили это письмо, потому что подписаны на изменения $PAGEOLD.<br>
+Редактировать подписки можно $WATCHLISTEDIT.
+',
 );
