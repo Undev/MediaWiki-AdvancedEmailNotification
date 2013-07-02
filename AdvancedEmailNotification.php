@@ -13,21 +13,27 @@ $wgExtensionCredits['other'][] = array(
     'author' => '[http://www.facebook.com/denisovdenis Denisov Denis]',
     'url' => 'https://github.com/Undev/wiki-AdvancedEmailNotification',
     'description' => 'Wiki Advanced email notification. Inline diffs, category subscribe.',
-    'version' => 0.1,
+    'version' => 0.2,
 );
-
 $wgExtensionMessagesFiles[] = dirname(__FILE__) . '/AdvancedEmailNotification.i18n.php';
 
 class AdvancedEmailNotification
 {
-    private $dbw;
+    private $isCategory;
     private $watchers;
-    private $sendMail;
-    private $notifyType;
+    private $editor;
+
+    private $isOurUserMailer;
+
+    private $newRevision;
+    private $oldRevision;
+
+    private $title;
 
     function __construct()
     {
         global $wgHooks;
+
         $wgHooks['ArticleSave'][] = $this;
         $wgHooks['AlternateUserMailer'][] = $this;
         $wgHooks['ArticleSaveComplete'][] = $this;
@@ -38,218 +44,129 @@ class AdvancedEmailNotification
         return __CLASS__;
     }
 
-    private function getDb()
+    public function init()
     {
-        if (is_null($this->dbw)) {
-            $this->dbw = wfGetDB(DB_MASTER);
+        $this->newRevision = RequestContext::getMain()->getWikiPage()->getRevision();
+
+        if ($this->newRevision->getPrevious()) {
+            $this->oldRevision = $this->newRevision->getPrevious();
+        } else {
+            $this->oldRevision = $this->newRevision;
         }
 
-        return $this->dbw;
+        $this->title = $this->newRevision->getTitle();
+        $this->editor = User::newFromId($this->newRevision->getUser());
     }
 
-
-    private function getWatchers()
-    {
-        return $this->watchers;
-    }
-
-    private function setWatchers(array $watchers)
-    {
-        $this->watchers = $this->getUsers($watchers);
-    }
 
     public function onArticleSave(&$article, &$editor)
     {
-        $title = $article->getTitle();
-        $this->isCategory = strpos($title->getPrefixedText(), ':') ? true : false;
+        $this->init();
 
-        $usersNotifiedOnCategoryChanges = $this->getUsersNotifiedOnCategoryChanges($editor, $title);
-        $usersNotifiedOnPageChanges = $this->getUsersNotifiedOnPageChanges($editor, $title);
+        $categoryWatchers = $this->getCategoryWatchers();
+        $pageWatchers = $this->getPageWatchers();
 
-        $this->notifyType = empty($usersNotifiedOnCategoryChanges) ? 'page' : 'category';
+        $watchers = array_merge($categoryWatchers, $pageWatchers);
+        $watchers = array_unique($watchers);
 
-        $usersNotified = array_merge($usersNotifiedOnCategoryChanges, $usersNotifiedOnPageChanges);
-        $usersNotified = array_unique($usersNotified);
+        $this->isCategory = empty($categoryWatchers) ? false : true;
 
-        $this->setWatchers($usersNotified);
+        $users = array();
+        foreach ($watchers as $userId) {
+            $users[] = User::newFromId($userId);
+        }
+
+        $this->watchers = $users;
 
         return true;
     }
 
     public function onAlternateUserMailer($headers, $to, $from, $subject, $body)
     {
-        if (!$this->sendMail) {
+        if ($this->isOurUserMailer) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function onArticleSaveComplete(&$article, &$editor)
+    {
+        $this->init();
+
+        if (empty($this->watchers)) {
+            return false;
+        }
+
+
+        $this->editor = $editor;
+        $this->composeMail();
+
+        return true;
+    }
+
+    private function checkWatchers()
+    {
+        global $wgEnotifWatchlist, $wgShowUpdatedMarker;
+
+        if (!$this->editor or (!$wgEnotifWatchlist and !$wgShowUpdatedMarker)) {
             return false;
         }
 
         return true;
     }
 
-
-    public function onArticleSaveComplete(&$article, &$editor)
+    private function getCategoryWatchers()
     {
-        global $wgSitename, $wgServer;
+        $this->checkWatchers();
 
-        $title = $article->getTitle();
-        $pageTitle = $title->getText();
-        $watchers = $this->getWatchers();
-
-        $newRevision = $article->getRevision();
-        if ($newRevision) {
-            $oldRevision = $newRevision->getPrevious() ? $newRevision->getPrevious() : $newRevision;
-            $newid = $newRevision->getId();
-            $oldid = $oldRevision->getId();
-
-            $userPage = Title::makeTitle(NS_USER, $editor->getName());
-            $editorLink = Linker::link($userPage, $editor->getName(), array('class' => 'mw-userlink'), array(), 'http');
-            $pageLink = Linker::link($title, $title->getText(), array(), array(), 'http');
-
-            $oldPageLink = ($this->notifyType === 'category' ? 'категории' : 'статьи') . ' ';
-            $oldPageLink .= Linker::link($oldRevision->getTitle(), $oldRevision->getTitle()->getText(), array(), array(), 'http');
-
-            $newPageDiffLink = Html::element('a', array('href' => $title->getCanonicalUrl("diff={$newid}&oldid={$oldid}")), 'изменения');
-            $allPageDiffLink = Html::element('a', array('href' => $title->getCanonicalUrl('action=history')), 'остальными');
-            $watchListEditLink = Html::element('a', array('href' => $wgServer . '/' . 'Special:Править_список_наблюдения'), 'здесь');
-
-            $categories = $this->getCategories($title);
-            $categories = implode(', ', $categories);
-
-            $revisionComment = $newRevision->getComment();
-
-            if ($oldRevision == $newRevision) {
-                $diff = wfMessage('AdvancedEmailNotification-newArticle')->inContentLanguage()->plain();
-            } else {
-                $diff = FeedUtils::formatDiffRow($title, $oldRevision->getId(), $newRevision->getId(), $newRevision->getTimestamp(), $newRevision->getComment());
-            }
-
-            if (!empty($watchers)) {
-                foreach ($watchers as $watchingUser) {
-                    if ($watchingUser instanceof User) {
-                        $keys = array(
-                            '$WATCHINGUSERNAME' => $watchingUser->getName(),
-                            '$TIMESTAMP' => date('j F H:i'),
-                            '$PAGETITLE' => $pageTitle,
-                            '$PAGE' => $pageLink,
-                            '$PAGEEDITOR' => $editor->getName(),
-                            '$PAGEEDITOR_WIKI' => $editorLink,
-                            '$SITENAME' => $wgSitename,
-                            '$DIFF' => $diff,
-                            '$NEWPAGE' => $newPageDiffLink,
-                            '$ALLPAGECHANGES' => $allPageDiffLink,
-                            '$CATEGORIES' => $categories,
-                            '$COMMENT' => $revisionComment,
-                            '$WATCHLISTEDIT' => $watchListEditLink,
-                            '$PAGEOLD' => $oldPageLink,
-                        );
-
-                        $this->sendMail = true;
-                        $this->composeMail($watchingUser, $keys, $title);
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private function array_values_recursive($array)
-    {
-        $arrayKeys = array();
-
-        foreach ($array as $key => $value) {
-            $arrayKeys[] = $key;
-            if (!empty($value)) {
-                $arrayKeys = array_merge($arrayKeys, $this->array_values_recursive($value));
-            }
-        }
-
-        return $arrayKeys;
-    }
-
-    private function getCategories(Title $title)
-    {
-        $categoriesTree = $this->array_values_recursive($title->getParentCategoryTree());
-        $categoriesTree = array_unique($categoriesTree);
-        $categories = array();
-        foreach ($categoriesTree as $category) {
-            if (strpos($category, ':')) {
-                $category = explode(':', $category);
-                $categories[] = $category[1];
-            }
-        }
-
-        return $categories;
-    }
-
-    private function getUsers(array $watchers)
-    {
-        $users = array();
-        foreach ($watchers as $userId) {
-            $users[] = User::newFromId($userId);
-        }
-        return $users;
-    }
-
-    private function getUsersNotifiedOnCategoryChanges(User $editor, Title $title)
-    {
-        global $wgEnotifWatchlist, $wgShowUpdatedMarker;
-
-        $categories = $this->getCategories($title);
-
+        $categories = $this->getCategories($this->title);
         $watchers = array();
-
-        if (!empty($categories)) {
-            foreach ($categories as $category) {
-                if ($wgEnotifWatchlist or $wgShowUpdatedMarker) {
-                    $dbw = $this->getDb();
-                    $res = $dbw->select(array('watchlist'),
-                        array('wl_user'),
-                        array(
-                            'wl_user != ' . intval($editor->getID()),
-//                            'wl_namespace' => $title->getNamespace(),
-                            'wl_title' => $category,
-                            'wl_notificationtimestamp IS NULL',
-                        ), __METHOD__
-                    );
-
-                    foreach ($res as $row) {
-                        $watchers[] = intval($row->wl_user);
-                    }
-
-                    $dbw->freeResult($res);
-                    $this->updateTimestamp($title, $watchers);
-                }
-            }
-
-            $watchers = array_unique($watchers);
-        }
-
-        return $watchers;
-    }
-
-    private function getUsersNotifiedOnPageChanges(User $editor, Title $title)
-    {
-        global $wgEnotifWatchlist, $wgShowUpdatedMarker;
-
-        $watchers = array();
-        if ($wgEnotifWatchlist or $wgShowUpdatedMarker) {
-            $dbw = $this->getDb();
+        foreach ($categories as $category) {
+            $dbw = wfGetDB(DB_MASTER);
             $res = $dbw->select(array('watchlist'),
                 array('wl_user'),
                 array(
-//                    'wl_user != ' . intval($editor->getID()),
-                    'wl_namespace' => $title->getNamespace(),
-                    'wl_title' => $title->getDBkey(),
+//                    'wl_user != ' . intval($this->editor->getID()),
+                    'wl_title' => $category,
                     'wl_notificationtimestamp IS NULL',
                 ), __METHOD__
             );
+
             foreach ($res as $row) {
                 $watchers[] = intval($row->wl_user);
             }
 
             $dbw->freeResult($res);
-            $this->updateTimestamp($title, $watchers);
+            $this->updateTimestamp($this->title, $watchers);
         }
+
+        $watchers = array_unique($watchers);
+
+        return $watchers;
+    }
+
+    private function getPageWatchers()
+    {
+        $this->checkWatchers();
+
+        $dbw = wfGetDB(DB_MASTER);
+        $res = $dbw->select(array('watchlist'),
+            array('wl_user'),
+            array(
+                'wl_namespace' => $this->title->getNamespace(),
+                'wl_title' => $this->title->getDBkey(),
+                'wl_notificationtimestamp IS NULL',
+            ), __METHOD__
+        );
+
+        $watchers = array();
+        foreach ($res as $row) {
+            $watchers[] = intval($row->wl_user);
+        }
+
+        $dbw->freeResult($res);
+        $this->updateTimestamp($this->title, $watchers);
 
         $watchers = array_unique($watchers);
 
@@ -264,7 +181,7 @@ class AdvancedEmailNotification
             return false;
         }
 
-        $dbw = $this->getDb();
+        $dbw = wfGetDB(DB_MASTER);
         $timestamp = time();
         $fName = __METHOD__;
         $dbw->onTransactionIdle(
@@ -286,37 +203,114 @@ class AdvancedEmailNotification
         return true;
     }
 
-    private function composeMail(User $watchingUser, array $keys, Title $title)
+    private function composeMail()
     {
+        global $wgServer, $wgLang, $wgSitename, $wgPasswordSender;
+
+        $protocol = substr($wgServer, 0, strpos($wgServer, ':'));
+
+        $userWikiPage = Title::makeTitle(NS_USER, $this->editor->getName());
+        $editorLink = Linker::link($userWikiPage, $this->editor->getName(), array('class' => 'mw-userlink'), array(), $protocol);
+
+        $articleLink = Html::element('a', array('href' => $this->title->getFullUrl()), $this->title->getText());
+
+        // @todo Здесь должна быть ссылка на категорию, либо на статью. Определить категорию.
+        $oldRevisionLink = ($this->isCategory ? 'категории' : 'статьи');
+//        $oldRevisionLink .= Linker::link($this->oldRevision->getTitle(),
+//            $this->oldRevision->getTitle()->getText(), array(), array(), $protocol);
+
+        $watchListEditLink = Html::element('a', array('href' => $wgServer . '/' . 'Special:Править_список_наблюдения'), 'здесь');
+
+        $timestamp = $wgLang->timeanddate($this->newRevision->getTimestamp());
+        $categories = $this->getCategories($this->title);
+        $categories = implode(', ', $categories);
+
+        $diff = $this->getDiff();
+
+        foreach ($this->watchers as $watchingUser) {
+            if ($watchingUser instanceof User) {
+                $keys = array(
+                    // For subject
+                    '#siteName' => $wgSitename,
+                    '#editorName' => $this->editor->getName(),
+                    '#pageTitle' => $this->title->getText(),
+
+                    // For body
+                    '#editorLink' => $editorLink,
+                    '#articleLink' => $articleLink,
+                    '#timestamp' => $timestamp,
+                    '#listOfCategories' => $categories,
+                    '#diffTable' => $diff,
+                    '#oldRevisionLink' => $oldRevisionLink,
+                    '#watchListLink' => $watchListEditLink,
+                );
+
+                $this->isOurUserMailer = true;
+
+            }
+        }
+
         if (!$watchingUser->getOption('enotifwatchlistpages') or !$watchingUser->isEmailConfirmed())
             return false;
 
         $to = new MailAddress($watchingUser);
-        $from = $this->getMailFrom();
-        $subject = $this->getMailSubject($keys);
-        $body = $this->getMailBody($keys);
+        $from = new MailAddress($wgPasswordSender, $wgSitename);
+        $subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
 
-        $status = UserMailer::send($to, $from, $subject, $body, null, 'text/html; charset=UTF-8');
+        $css = file_get_contents('css/mail.min.css', FILE_USE_INCLUDE_PATH);
+        $body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
+        $content = "<html><head><style>$css</style></head><body>$body</body></html>";
+
+        $status = UserMailer::send($to, $from, $subject, $content, null, 'text/html; charset=UTF-8');
 
         return true;
-
     }
 
-    private function getMailBody(array $keys)
+    private function getDiff()
     {
-        return strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
+        global $wgServer;
+
+        if (!$this->oldRevision or !$this->newRevision) {
+            return false;
+        }
+
+        $differenceEngine = new DifferenceEngine(null, $this->oldRevision->getId(), $this->newRevision->getId());
+        $differenceEngine->showDiffPage(true);
+
+        $html = RequestContext::getMain()->getOutput()->getHTML();
+        $pattern = "/(?<=href=(\"|'))[^\"']+(?=(\"|'))/";
+        $diff = preg_replace($pattern, "$wgServer$0", $html);
+
+        return $diff;
     }
 
-    private function getMailSubject(array $keys)
+    private function getCategories(Title $title)
     {
-        return strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
+        $categoriesTree = $this->array_values_recursive($title->getParentCategoryTree());
+        $categoriesTree = array_unique($categoriesTree);
+        $categories = array();
+        foreach ($categoriesTree as $category) {
+            if (strpos($category, ':')) {
+                $category = explode(':', $category);
+                $categories[] = $category[1];
+            }
+        }
+
+        return $categories;
     }
 
-    private function getMailFrom()
+    private function array_values_recursive($array)
     {
-        global $wgSitename, $wgPasswordSender;
+        $arrayKeys = array();
 
-        return new MailAddress($wgPasswordSender, $wgSitename);
+        foreach ($array as $key => $value) {
+            $arrayKeys[] = $key;
+            if (!empty($value)) {
+                $arrayKeys = array_merge($arrayKeys, $this->array_values_recursive($value));
+            }
+        }
+
+        return $arrayKeys;
     }
 }
 

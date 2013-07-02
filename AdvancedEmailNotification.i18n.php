@@ -9,17 +9,35 @@
 $messages = array();
 
 $messages['ru'] = array(
-    'AdvancedEmailNotification-newArticle' => 'Изменением является создание страницы.',
-	'emailsubject' => '$PAGETITLE изменена $PAGEEDITOR [$SITENAME]',
-    'enotif_body' => '
-Автор: $PAGEEDITOR_WIKI.<br>
-Статья: $PAGE.<br>
-Новая ревизия: $TIMESTAMP. Посмотреть $NEWPAGE.<br>
-Категории статьи: $CATEGORIES.<br><br>
+    'emailsubject' => '#pageTitle изменена #editorName [#siteName]',
+    'enotif_body' => <<<HTML
+    <div class="container">
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td style="width: 150px;">Автор</td>
+                    <td>#editorLink</td>
+                </tr>
+                <tr>
+                    <td>Статья</td>
+                    <td>#articleLink</td>
+                </tr>
+                <tr>
+                    <td>Новая ревизия</td>
+                    <td>#timestamp</td>
+                </tr>
+                <tr>
+                    <td>Категории статьи</td>
+                    <td>#listOfCategories</td>
+                </tr>
+            </tbody>
+        </table>
+        #diffTable
 
-$DIFF<br><br>
-
-Вы получили это письмо, потому что подписаны на изменения $PAGEOLD.<br>
-Редактировать подписки можно $WATCHLISTEDIT.
-',
+        <pre>
+            Вы получили это письмо, потому что подписаны на изменения данной #oldRevisionLink.
+            Редактировать свой Спиок наблюдения можно #watchListLink.
+        </pre>
+    </div>
+HTML
 );
