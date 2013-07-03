@@ -48,20 +48,23 @@ class AdvancedEmailNotification
     {
         $this->newRevision = RequestContext::getMain()->getWikiPage()->getRevision();
 
-        if ($this->newRevision->getPrevious()) {
-            $this->oldRevision = $this->newRevision->getPrevious();
-        } else {
-            $this->oldRevision = $this->newRevision;
+        if (is_null($this->newRevision)) {
+            return false;
         }
 
+        $this->oldRevision = $this->newRevision->getPrevious();
         $this->title = $this->newRevision->getTitle();
         $this->editor = User::newFromId($this->newRevision->getUser());
+
+        return true;
     }
 
 
     public function onArticleSave(&$article, &$editor)
     {
-        $this->init();
+        if (!$this->init()) {
+            return true;
+        }
 
         $categoryWatchers = $this->getCategoryWatchers();
         $pageWatchers = $this->getPageWatchers();
@@ -92,7 +95,9 @@ class AdvancedEmailNotification
 
     public function onArticleSaveComplete(&$article, &$editor)
     {
-        $this->init();
+        if (!$this->init()) {
+            return true;
+        }
 
         if (empty($this->watchers)) {
             return false;
