@@ -46,7 +46,11 @@ class AdvancedEmailNotification
 
     public function init()
     {
-        $this->newRevision = RequestContext::getMain()->getWikiPage()->getRevision();
+        try {
+            $this->newRevision = RequestContext::getMain()->getWikiPage()->getRevision();
+        } catch (Exception $e) {
+            return false;
+        }
 
         if (is_null($this->newRevision)) {
             return false;
