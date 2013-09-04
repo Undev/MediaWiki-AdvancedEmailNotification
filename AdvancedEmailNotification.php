@@ -257,20 +257,20 @@ class AdvancedEmailNotification
                 $this->isOurUserMailer = true;
 
             }
+
+            if (!$watchingUser->getOption('enotifwatchlistpages') or !$watchingUser->isEmailConfirmed())
+                return false;
+
+            $to = new MailAddress($watchingUser);
+            $from = new MailAddress($wgPasswordSender, $wgSitename);
+            $subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
+
+            $css = file_get_contents('css/mail.min.css', FILE_USE_INCLUDE_PATH);
+            $body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
+            $content = "<html><head><style>$css</style></head><body>$body</body></html>";
+
+            $status = UserMailer::send($to, $from, $subject, $content, null, 'text/html; charset=UTF-8');
         }
-
-        if (!$watchingUser->getOption('enotifwatchlistpages') or !$watchingUser->isEmailConfirmed())
-            return false;
-
-        $to = new MailAddress($watchingUser);
-        $from = new MailAddress($wgPasswordSender, $wgSitename);
-        $subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
-
-        $css = file_get_contents('css/mail.min.css', FILE_USE_INCLUDE_PATH);
-        $body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
-        $content = "<html><head><style>$css</style></head><body>$body</body></html>";
-
-        $status = UserMailer::send($to, $from, $subject, $content, null, 'text/html; charset=UTF-8');
 
         return true;
     }
