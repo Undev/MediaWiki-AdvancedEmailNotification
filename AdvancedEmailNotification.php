@@ -138,7 +138,7 @@ class AdvancedEmailNotification
                 array(
 //                    'wl_user != ' . intval($this->editor->getID()),
                     'wl_title' => $category,
-                    'wl_notificationtimestamp IS NULL',
+//                    'wl_notificationtimestamp IS NULL',
                 ), __METHOD__
             );
 
@@ -165,7 +165,7 @@ class AdvancedEmailNotification
             array(
                 'wl_namespace' => $this->title->getNamespace(),
                 'wl_title' => $this->title->getDBkey(),
-                'wl_notificationtimestamp IS NULL',
+//                'wl_notificationtimestamp IS NULL',
             ), __METHOD__
         );
 
@@ -225,8 +225,8 @@ class AdvancedEmailNotification
 
         // @todo Здесь должна быть ссылка на категорию, либо на статью. Определить категорию.
         $oldRevisionLink = ($this->isCategory ? 'категории' : 'статьи');
-//        $oldRevisionLink .= Linker::link($this->oldRevision->getTitle(),
-//            $this->oldRevision->getTitle()->getText(), array(), array(), $protocol);
+//      $oldRevisionLink .= Linker::link($this->oldRevision->getTitle(),
+//      $this->oldRevision->getTitle()->getText(), array(), array(), $protocol);
 
         $watchListEditLink = Html::element('a', array('href' => $wgServer . '/' . 'Special:Править_список_наблюдения'), 'здесь');
 
@@ -256,20 +256,20 @@ class AdvancedEmailNotification
 
                 $this->isOurUserMailer = true;
 
+                if (!$watchingUser->getOption('enotifwatchlistpages') or !$watchingUser->isEmailConfirmed()) {
+                    continue;
+                }
+
+                $to = new MailAddress($watchingUser);
+                $from = new MailAddress($wgPasswordSender, $wgSitename);
+                $subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
+
+                $css = file_get_contents('css/mail.min.css', FILE_USE_INCLUDE_PATH);
+                $body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
+                $body = "<html><head><style>$css</style></head><body>$body</body></html>";
+
+                $status = UserMailer::send($to, $from, $subject, $body, null, 'text/html; charset=UTF-8');
             }
-
-            if (!$watchingUser->getOption('enotifwatchlistpages') or !$watchingUser->isEmailConfirmed())
-                return false;
-
-            $to = new MailAddress($watchingUser);
-            $from = new MailAddress($wgPasswordSender, $wgSitename);
-            $subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
-
-            $css = file_get_contents('css/mail.min.css', FILE_USE_INCLUDE_PATH);
-            $body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
-            $content = "<html><head><style>$css</style></head><body>$body</body></html>";
-
-            $status = UserMailer::send($to, $from, $subject, $content, null, 'text/html; charset=UTF-8');
         }
 
         return true;
@@ -278,6 +278,7 @@ class AdvancedEmailNotification
     private function getDiff()
     {
         global $wgServer;
+        // @ todo get 'wl_notificationtimestamp IS NULL',
 
         if (!$this->oldRevision or !$this->newRevision) {
             return false;
