@@ -35,7 +35,6 @@ class AdvancedEmailNotification
         global $wgHooks;
 
         $wgHooks['ArticleSave'][] = $this;
-        $wgHooks['AlternateUserMailer'][] = $this;
         $wgHooks['ArticleSaveComplete'][] = $this;
     }
 
@@ -86,15 +85,6 @@ class AdvancedEmailNotification
         $this->watchers = $users;
 
         return true;
-    }
-
-    public function onAlternateUserMailer($headers, $to, $from, $subject, $body)
-    {
-        if ($this->isOurUserMailer) {
-            return true;
-        }
-
-        return false;
     }
 
     public function onArticleSaveComplete(&$article, &$editor)
