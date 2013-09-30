@@ -9,35 +9,40 @@
 $messages = array();
 
 $messages['ru'] = array(
-    'emailsubject' => '#pageTitle изменена #editorName [#siteName]',
+    'subscribeCondition-page' => 'Вы получили это письмо, потому что подписаны на изменения данной статьи',
+    'subscribeCondition-category' => 'Вы получили это письмо, потому что подписаны на следующие категории: ',
+    'watchlist-edit-link' => 'здесь',
+
+    'emailsubject' => '{{pageTitle}} изменена {{editorName}} [{{siteName}}]',
     'enotif_body' => <<<HTML
     <div class="container">
         <table class="table">
             <tbody>
                 <tr>
                     <td style="width: 150px;">Автор</td>
-                    <td>#editorLink</td>
+                    <td>{{editorLink}}</td>
                 </tr>
                 <tr>
                     <td>Статья</td>
-                    <td>#articleLink</td>
+                    <td>{{pageLink}}</td>
                 </tr>
                 <tr>
                     <td>Новая ревизия</td>
-                    <td>#timestamp</td>
+                    <td>{{timestamp}}</td>
                 </tr>
                 <tr>
                     <td>Категории статьи</td>
-                    <td>#listOfCategories</td>
+                    <td>{{pageCategories}}</td>
                 </tr>
             </tbody>
         </table>
-        #diffTable
+        {{diffTable}}
 
         <pre>
-            Вы получили это письмо, потому что подписаны на изменения данной #oldRevisionLink.
-            Редактировать свой Список наблюдения можно #watchListLink.
+            {{subscribeCondition}}
+            Вы можете отредактировать свой список наблюдения {{editWatchlistLink}}.
         </pre>
     </div>
 HTML
+
 );
