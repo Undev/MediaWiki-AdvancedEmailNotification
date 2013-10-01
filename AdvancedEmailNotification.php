@@ -94,7 +94,6 @@ class AdvancedEmailNotification
         $this->oldRevision = $this->newRevision->getPrevious();
         $this->title = $this->newRevision->getTitle();
         $this->editor = User::newFromId($this->newRevision->getUser());
-        $this->diff = $this->getDiff();
 
         return true;
     }
@@ -180,6 +179,8 @@ class AdvancedEmailNotification
         if (!$this->init()) {
             return true;
         }
+
+	    $this->diff = $this->getDiff();
 
         if (!empty($this->pageWatchers)) {
             foreach ($this->pageWatchers as $userId) {
