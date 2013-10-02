@@ -232,7 +232,9 @@ class AdvancedEmailNotification
             $pageCategories[] = Linker::link($categoryTitle, $category, array(), array(), array('http'));
         }
 
-        $pageCategories = implode(', ', $pageCategories);
+	    if (!empty($pageCategories)) {
+            $pageCategories = implode(', ', $pageCategories);
+	    }
 
         if (is_null($watchedType)) {
             $subscribeCondition = wfMessage('subscribeCondition-page')->inContentLanguage()->plain();
