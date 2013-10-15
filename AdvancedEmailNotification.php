@@ -225,7 +225,7 @@ class AdvancedEmailNotification
 			foreach ($this->categoryWatchers as $userId => $watchedCategories) {
 				$user = User::newFromId($userId);
 				if ($this->isUserNotified($user)) {
-					$this->notifyByMail($user, (string)$watchedCategories);
+					$this->notifyByMail($user, $watchedCategories);
 				}
 				$this->notifyByWatchlist($user);
 			}
