@@ -104,13 +104,27 @@ class AdvancedEmailNotification
 		return true;
 	}
 
+	/**
+	 * Prevent user from native mail notification using the mediator.
+	 *
+	 * @param $headers
+	 * @param $to
+	 * @param $from
+	 * @param $subject
+	 * @param $body
+	 * @return bool
+	 */
 	public function onAlternateUserMailer($headers, $to, $from, $subject, $body)
 	{
-		if ($this->isOurUserMailer) {
-			return true;
+		if (RequestContext::getMain()->getOutput()->isArticle()) {
+			if ($this->isOurUserMailer) {
+				return true;
+			} else {
+				return false;
+			}
 		}
 
-		return false;
+		return true;
 	}
 
 	/**
