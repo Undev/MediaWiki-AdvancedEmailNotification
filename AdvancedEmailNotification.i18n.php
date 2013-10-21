@@ -9,6 +9,7 @@
 $messages = array();
 
 $messages['ru'] = array(
+    'subscribeCondition-categories-empty' => 'нет категорий',
     'subscribeCondition-page' => 'Вы получили это письмо, потому что подписаны на изменения данной статьи',
     'subscribeCondition-category' => 'Вы получили это письмо, потому что подписаны на следующие категории: ',
     'watchlist-edit-link' => 'здесь',

@@ -265,6 +265,8 @@ class AdvancedEmailNotification
 
 		if (!empty($pageCategories)) {
 			$pageCategories = implode(', ', $pageCategories);
+		} else {
+			$pageCategories = wfMessage('subscribeCondition-categories-empty')->inContentLanguage()->plain();
 		}
 
 		if (is_null($watchedType)) {
