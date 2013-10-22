@@ -116,7 +116,8 @@ class AdvancedEmailNotification
 	 */
 	public function onAlternateUserMailer($headers, $to, $from, $subject, $body)
 	{
-		if (RequestContext::getMain()->getOutput()->isArticle()) {
+		if (RequestContext::getMain()->getOutput()->isArticle() or
+			RequestContext::getMain()->getOutput()->isArticleRelated()) {
 			if ($this->isOurUserMailer) {
 				return true;
 			} else {
