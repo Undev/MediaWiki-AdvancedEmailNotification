@@ -117,7 +117,8 @@ class AdvancedEmailNotification
 	public function onAlternateUserMailer($headers, $to, $from, $subject, $body)
 	{
 		if (RequestContext::getMain()->getOutput()->isArticle() or
-			RequestContext::getMain()->getOutput()->isArticleRelated()) {
+			RequestContext::getMain()->getOutput()->isArticleRelated() or
+			RequestContext::getMain()->getTitle()->getDBkey() == SpecialPage::getTitleFor('Movepage')->getDBkey()) {
 			if ($this->isOurUserMailer) {
 				return true;
 			} else {
