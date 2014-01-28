@@ -9,13 +9,13 @@
 $messages = array();
 
 $messages['ru'] = array(
-    'subscribeCondition-categories-empty' => 'нет категорий',
-    'subscribeCondition-page' => 'Вы получили это письмо, потому что подписаны на изменения данной статьи',
-    'subscribeCondition-category' => 'Вы получили это письмо, потому что подписаны на следующие категории: ',
-    'watchlist-edit-link' => 'здесь',
+	'subscribeCondition-categories-empty' => 'нет категорий',
+	'subscribeCondition-page' => 'Вы получили это письмо, потому что подписаны на изменения данной статьи',
+	'subscribeCondition-category' => 'Вы получили это письмо, потому что подписаны на следующие категории: ',
+	'watchlist-edit-link' => 'здесь',
 
-    'emailsubject' => '{{pageTitle}} изменена {{editorName}} [{{siteName}}]',
-    'enotif_body' => <<<HTML
+	'emailsubject' => '{{pageTitle}} изменена {{editorName}} [{{siteName}}]',
+	'enotif_body' => <<<HTML
     <div class="container">
         <table class="table">
             <tbody>
@@ -29,7 +29,7 @@ $messages['ru'] = array(
                 </tr>
                 <tr>
                     <td>Новая ревизия</td>
-                    <td>{{timestamp}}</td>
+                    <td>{{timestamp}} ({{diffLink}})</td>
                 </tr>
                 <tr>
                     <td>Категории статьи</td>

@@ -1,16 +1,8 @@
 <?php
-/**
- * Author: Denisov Denis
- * Email: denisovdenis@me.com
- * Date: 03.06.13
- * Time: 13:58
- */
-
 $wgExtensionFunctions[] = 'wfSetupAdvancedEmailNotification';
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'AdvancedEmailNotification',
-	'author' => '[http://www.denisovdenis.com Denisov Denis]',
 	'url' => 'https://github.com/Undev/MediaWiki-AdvancedEmailNotification',
 	'description' => 'Adds the ability to watch for categories and nested pages. Replaces the standard message template to a more comfortable with inline diffs.',
 	'version' => 1.0,
@@ -118,7 +110,8 @@ class AdvancedEmailNotification
 	{
 		if (RequestContext::getMain()->getOutput()->isArticle() or
 			RequestContext::getMain()->getOutput()->isArticleRelated() or
-			RequestContext::getMain()->getTitle()->getDBkey() == SpecialPage::getTitleFor('Movepage')->getDBkey()) {
+			RequestContext::getMain()->getTitle()->getDBkey() == SpecialPage::getTitleFor('Movepage')->getDBkey()
+		) {
 			if ($this->isOurUserMailer) {
 				return true;
 			} else {
@@ -251,7 +244,7 @@ class AdvancedEmailNotification
 
 		// Create link for editor page
 		$editorPageTitle = Title::makeTitle(NS_USER, $this->editor->getName());
-		$editorLink = Linker::link($editorPageTitle, null, array(), array(), array('http'));
+		$editorLink = Linker::link($editorPageTitle, $this->editor->getName(), array(), array(), array('http'));
 
 		// Create link for edit user watchlist
 		$editWatchlistTitle = Title::makeTitle(NS_SPECIAL, 'Watchlist/Edit');
@@ -259,6 +252,7 @@ class AdvancedEmailNotification
 
 		// Create link to this page
 		$pageLink = Linker::link($this->title, null, array(), array(), array('http'));
+		$diffLink = Html::element('a', array('href' => $this->title->getCanonicalUrl('diff=' . $this->newRevision->getId())), 'diff');
 
 		foreach ($this->pageCategories as $category) {
 			$categoryTitle = Title::makeTitle(NS_CATEGORY, $category);
@@ -292,6 +286,7 @@ class AdvancedEmailNotification
 			'{{pageLink}}' => $pageLink,
 			'{{timestamp}}' => date('d-m-Y H:i:s', time()),
 			'{{pageCategories}}' => $pageCategories,
+			'{{diffLink}}' => $diffLink,
 			'{{diffTable}}' => $this->getDiff(),
 			'{{subscribeCondition}}' => $subscribeCondition,
 			'{{editWatchlistLink}}' => $editWatchlistLink,
