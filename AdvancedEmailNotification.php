@@ -275,6 +275,9 @@ class AdvancedEmailNotification
 			$subscribeCondition = wfMessage('subscribeCondition-category')->inContentLanguage()->plain() . implode(', ', $categoryWatch) . '.';
 		}
 
+		$dateofrev = RequestContext::getMain()->getLanguage()->userDate(time(), RequestContext::getMain()->getUser());
+		$timeofrev = RequestContext::getMain()->getLanguage()->userTime(time(), RequestContext::getMain()->getUser());
+
 		$keys = array(
 			// For subject
 			'{{siteName}}' => $wgSitename,
@@ -284,7 +287,7 @@ class AdvancedEmailNotification
 			// For body
 			'{{editorLink}}' => $editorLink,
 			'{{pageLink}}' => $pageLink,
-			'{{timestamp}}' => date('d-m-Y H:i:s', time()),
+			'{{timestamp}}' => $dateofrev . ' ' . $timeofrev,
 			'{{pageCategories}}' => $pageCategories,
 			'{{diffLink}}' => $diffLink,
 			'{{diffTable}}' => $this->getDiff(),
