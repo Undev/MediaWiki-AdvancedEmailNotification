@@ -1,5 +1,8 @@
 <?php
 $wgExtensionFunctions[] = 'wfSetupAdvancedEmailNotification';
+
+$wgAutoloadClasses['UndevDifferenceEngine'] = __DIR__ . '/' . 'UndevDifferenceEngine.php';
+
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
 	'name' => 'AdvancedEmailNotification',
@@ -299,9 +302,10 @@ class AdvancedEmailNotification
 		$from = new MailAddress($wgPasswordSender, $wgSitename);
 		$subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
 
-		$css = file_get_contents('css/mail.min.css', FILE_USE_INCLUDE_PATH);
+		$css = file_get_contents('resources/mediawiki.action/mediawiki.action.history.diff.css', FILE_USE_INCLUDE_PATH);
 		$body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
-		$body = "<html><head><style>$css</style></head><body>$body</body></html>";
+
+		$body .= "<style>{$css}</style>";
 
 		$status = UserMailer::send($to, $from, $subject, $body, null, 'text/html; charset=UTF-8');
 
@@ -398,7 +402,7 @@ class AdvancedEmailNotification
 			return false;
 		}
 
-		$differenceEngine = new DifferenceEngine(null, $this->oldRevision->getId(), $this->newRevision->getId());
+		$differenceEngine = new UndevDifferenceEngine(null, $this->oldRevision->getId(), $this->newRevision->getId());
 		$differenceEngine->showDiffPage(true);
 
 		$html = RequestContext::getMain()->getOutput()->getHTML();
