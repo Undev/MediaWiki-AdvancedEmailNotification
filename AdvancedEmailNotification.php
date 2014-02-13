@@ -1,7 +1,8 @@
 <?php
 $wgExtensionFunctions[] = 'wfSetupAdvancedEmailNotification';
 
-$wgAutoloadClasses['UndevDifferenceEngine'] = __DIR__ . '/' . 'UndevDifferenceEngine.php';
+$wgAutoloadClasses['DifferenceEngineUndev'] = __DIR__ . '/' . 'DifferenceEngineUndev.php';
+$wgAutoloadClasses['TableDiffFormatterUndev'] = __DIR__ . '/' . 'TableDiffFormatterUndev.php';
 
 $wgExtensionCredits['other'][] = array(
 	'path' => __FILE__,
@@ -73,6 +74,8 @@ class AdvancedEmailNotification
 		$wgHooks['SpecialWatchlistQuery'][] = $this;
 		$wgHooks['ArticleSave'][] = $this;
 		$wgHooks['ArticleSaveComplete'][] = $this;
+
+		$wgHooks['GetPreferences'][] = $this;
 	}
 
 	function __toString()
@@ -95,6 +98,18 @@ class AdvancedEmailNotification
 		$this->oldRevision = $this->newRevision->getPrevious();
 		$this->title = $this->newRevision->getTitle();
 		$this->editor = User::newFromId($this->newRevision->getUser());
+
+		return true;
+	}
+
+	public function onGetPreferences(User $user, array &$preferences)
+	{
+
+		$preferences['AdvancedEmailNotification-diff-align'] = array(
+			'type' => 'toggle',
+			'label-message' => 'email-settings-diff', // a system message
+			'section' => 'personal/email',
+		);
 
 		return true;
 	}
@@ -390,11 +405,11 @@ class AdvancedEmailNotification
 	}
 
 
-	private function getDiff()
+	private function getDiff($isRearranged = null)
 	{
 		global $wgServer;
 
-		if (!is_null($this->diff)) {
+		if ($this->diff and !$isRearranged) {
 			return $this->diff;
 		}
 
@@ -402,7 +417,7 @@ class AdvancedEmailNotification
 			return false;
 		}
 
-		$differenceEngine = new UndevDifferenceEngine(null, $this->oldRevision->getId(), $this->newRevision->getId());
+		$differenceEngine = new DifferenceEngineUndev(null, $this->oldRevision->getId(), $this->newRevision->getId());
 		$differenceEngine->showDiffPage(true);
 
 		$html = RequestContext::getMain()->getOutput()->getHTML();

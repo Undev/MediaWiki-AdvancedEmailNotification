@@ -1,11 +1,14 @@
 <?php
 
-class UndevDifferenceEngine extends DifferenceEngine
+class DifferenceEngineUndev extends DifferenceEngine
 {
+	protected $isRearranged = null;
+
 	protected function getRevisionHeader(Revision $rev, $complete = '')
 	{
 		$lang = $this->getLanguage();
 		$user = $this->getUser();
+		$this->isRearranged = $user->getOption('AdvancedEmailNotification-diff-align');
 		$revtimestamp = $rev->getTimestamp();
 		$timestamp = $lang->userTimeAndDate($revtimestamp, $user);
 		$dateofrev = $lang->userDate($revtimestamp, $user);
@@ -203,6 +206,13 @@ class UndevDifferenceEngine extends DifferenceEngine
 				$msg = $suppressed ? 'rev-suppressed-diff-view' : 'rev-deleted-diff-view';
 				$notice = "<div id='mw-$msg' class='mw-warning plainlinks'>\n" . $this->msg($msg)->parse() . "</div>\n";
 			}
+			if ($this->isRearranged) {
+				$tempHeader = $newHeader;
+				$newHeader = $oldHeader;
+				$oldHeader = $tempHeader;
+			} else {
+
+			}
 			$this->showDiff($oldHeader, $newHeader, $notice);
 			if (!$diffOnly) {
 				$this->renderNewRevision();
@@ -210,4 +220,30 @@ class UndevDifferenceEngine extends DifferenceEngine
 		}
 		wfProfileOut(__METHOD__);
 	}
-} 
+
+	function generateTextDiffBody($otext, $ntext)
+	{
+		global $wgExternalDiffEngine, $wgContLang;
+
+		wfProfileIn(__METHOD__);
+
+		$otext = str_replace("\r\n", "\n", $otext);
+		$ntext = str_replace("\r\n", "\n", $ntext);
+
+		# Native PHP diff
+		$ota = explode("\n", $wgContLang->segmentForDiff($otext));
+		$nta = explode("\n", $wgContLang->segmentForDiff($ntext));
+
+		$diffs = new Diff($ota, $nta);
+		if ($this->isRearranged) {
+			$diffs->reverse();
+			$formatter = new TableDiffFormatterUndev();
+		} else {
+			$formatter = new TableDiffFormatter();
+		}
+
+		$difftext = $wgContLang->unsegmentForDiff($formatter->format($diffs)) . wfProfileOut(__METHOD__);
+
+		return $difftext;
+	}
+}
