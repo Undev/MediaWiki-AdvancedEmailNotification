@@ -15,7 +15,7 @@ $messages['ru'] = array(
 	'subscribeCondition-category' => 'Вы получили это письмо, потому что подписаны на следующие категории: ',
 	'watchlist-edit-link' => 'здесь',
 
-	'emailsubject' => '{{pageTitle}} изменена {{editorName}} [{{siteName}}]',
+	'emailsubject' => '{{pageTitle}} [{{siteName}}]',
 	'enotif_body' => <<<HTML
     <div class="container">
         <table class="table">
