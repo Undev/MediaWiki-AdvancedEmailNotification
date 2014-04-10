@@ -221,8 +221,6 @@ class AdvancedEmailNotification
 			return true;
 		}
 
-		$this->diff = $this->getDiff();
-
 		if (!empty($this->pageWatchers)) {
 			foreach ($this->pageWatchers as $userId) {
 				$user = User::newFromId($userId);
@@ -308,7 +306,7 @@ class AdvancedEmailNotification
 			'{{timestamp}}' => $dateofrev . ' ' . $timeofrev,
 			'{{pageCategories}}' => $pageCategories,
 			'{{diffLink}}' => $diffLink,
-			'{{diffTable}}' => $this->getDiff(),
+			'{{diffTable}}' => $this->getDiff($user->getOption('AdvancedEmailNotification-diff-align')),
 			'{{subscribeCondition}}' => $subscribeCondition,
 			'{{editWatchlistLink}}' => $editWatchlistLink,
 		);
@@ -319,7 +317,6 @@ class AdvancedEmailNotification
 
 		$css = file_get_contents('resources/mediawiki.action/mediawiki.action.history.diff.css', FILE_USE_INCLUDE_PATH);
 		$body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
-
 		$body .= "<style>{$css}</style>";
 
 		$status = UserMailer::send($to, $from, $subject, $body, null, 'text/html; charset=UTF-8');
@@ -409,15 +406,12 @@ class AdvancedEmailNotification
 	{
 		global $wgServer;
 
-		if ($this->diff and !$isRearranged) {
-			return $this->diff;
-		}
-
 		if (!$this->oldRevision or !$this->newRevision) {
 			return false;
 		}
 
 		$differenceEngine = new DifferenceEngineUndev(null, $this->oldRevision->getId(), $this->newRevision->getId());
+		$differenceEngine->setOrder($isRearranged);
 		$differenceEngine->showDiffPage(true);
 
 		$html = RequestContext::getMain()->getOutput()->getHTML();

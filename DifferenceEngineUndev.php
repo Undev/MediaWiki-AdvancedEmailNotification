@@ -2,13 +2,23 @@
 
 class DifferenceEngineUndev extends DifferenceEngine
 {
-	protected $isRearranged = null;
+	protected $isRearranged;
+
+	public function getOrder()
+	{
+		return $this->isRearranged;
+	}
+
+	public function setOrder($order)
+	{
+		$this->isRearranged = $order;
+	}
 
 	protected function getRevisionHeader(Revision $rev, $complete = '')
 	{
 		$lang = $this->getLanguage();
 		$user = $this->getUser();
-		$this->isRearranged = $user->getOption('AdvancedEmailNotification-diff-align');
+
 		$revtimestamp = $rev->getTimestamp();
 		$timestamp = $lang->userTimeAndDate($revtimestamp, $user);
 		$dateofrev = $lang->userDate($revtimestamp, $user);
@@ -207,19 +217,59 @@ class DifferenceEngineUndev extends DifferenceEngine
 				$msg = $suppressed ? 'rev-suppressed-diff-view' : 'rev-deleted-diff-view';
 				$notice = "<div id='mw-$msg' class='mw-warning plainlinks'>\n" . $this->msg($msg)->parse() . "</div>\n";
 			}
-			if ($this->isRearranged) {
+			if ($this->getOrder()) {
 				$tempHeader = $newHeader;
 				$newHeader = $oldHeader;
 				$oldHeader = $tempHeader;
-			} else {
-
 			}
+
 			$this->showDiff($oldHeader, $newHeader, $notice);
 			if (!$diffOnly) {
 				$this->renderNewRevision();
 			}
 		}
 		wfProfileOut(__METHOD__);
+	}
+
+	/**
+	 * Get the diff text, send it to the OutputPage object
+	 * Returns false if the diff could not be generated, otherwise returns true
+	 *
+	 * @return bool
+	 */
+	function showDiff($otitle, $ntitle, $notice = '')
+	{
+		$diff = $this->getDiff($otitle, $ntitle, $notice);
+		if ($diff === false) {
+			$this->showMissingRevision();
+			return false;
+		} else {
+			$this->showDiffStyle();
+			$this->getOutput()->clearHTML($diff);
+			$this->getOutput()->addHTML($diff);
+			return true;
+		}
+	}
+
+	private function showMissingRevision()
+	{
+		$out = $this->getOutput();
+
+		$missing = array();
+		if ($this->mOldRev === null ||
+			($this->mOldRev && $this->mOldContent === null)
+		) {
+			$missing[] = $this->deletedIdMarker($this->mOldid);
+		}
+		if ($this->mNewRev === null ||
+			($this->mNewRev && $this->mNewContent === null)
+		) {
+			$missing[] = $this->deletedIdMarker($this->mNewid);
+		}
+
+		$out->setPageTitle($this->msg('errorpagetitle'));
+		$out->addWikiMsg('difference-missing-revision',
+			$this->getLanguage()->listToText($missing), count($missing));
 	}
 
 	function generateTextDiffBody($otext, $ntext)
@@ -236,7 +286,7 @@ class DifferenceEngineUndev extends DifferenceEngine
 		$nta = explode("\n", $wgContLang->segmentForDiff($ntext));
 
 		$diffs = new Diff($ota, $nta);
-		if ($this->isRearranged) {
+		if ($this->getOrder()) {
 			$diffs->reverse();
 			$formatter = new TableDiffFormatterUndev();
 		} else {
