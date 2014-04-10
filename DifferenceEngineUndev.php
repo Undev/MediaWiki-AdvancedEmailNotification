@@ -167,6 +167,7 @@ class DifferenceEngineUndev extends DifferenceEngine
 		$newRevisionHeader = $this->getRevisionHeader($this->mNewRev, 'complete');
 		$newChangeTags = ChangeTags::formatSummaryRow($this->mNewTags, 'diff');
 
+		$rollback = '';
 		$newHeader = '<div id="mw-diff-ntitle1"><strong>' . $newRevisionHeader . '</strong></div>' .
 			'<div id="mw-diff-ntitle2">' . Linker::revUserLink($this->mNewRev, !$this->unhide) .
 			" $rollback</div>" .
