@@ -312,7 +312,7 @@ class AdvancedEmailNotification
 		);
 
 		$to = new MailAddress($user);
-		$from = new MailAddress($wgPasswordSender, $wgSitename);
+		$from = new MailAddress($this->editor);
 		$subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
 
 		$css = file_get_contents('resources/mediawiki.action/mediawiki.action.history.diff.css', FILE_USE_INCLUDE_PATH);
