@@ -8,7 +8,7 @@ class TableDiffFormatterUndev extends TableDiffFormatter
 	 * @param $line
 	 * @return string
 	 */
-	private function wrapLine($marker, $class, $line)
+	protected function wrapLine($marker, $class, $line)
 	{
 		if ($line !== '') {
 			// The <div> wrapper is needed for 'overflow: auto' style to scroll properly
