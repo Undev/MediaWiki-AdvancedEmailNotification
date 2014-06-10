@@ -4,6 +4,9 @@ class DifferenceEngineUndev extends DifferenceEngine
 {
 	protected $isRearranged;
 
+	protected $mNewTags;
+	protected $mOldTags;
+
 	public function getOrder()
 	{
 		return $this->isRearranged;
@@ -168,7 +171,7 @@ class DifferenceEngineUndev extends DifferenceEngine
 		$rdel = $this->revisionDeleteLink($this->mNewRev);
 
 		# Allow extensions to define their own revision tools
-		wfRunHooks('DiffRevisionTools', array($this->mNewRev, &$revisionTools));
+		wfRunHooks( 'DiffRevisionTools', array( $this->mNewRev, &$revisionTools, $this->mOldRev ) );
 		$formattedRevisionTools = array();
 		// Put each one in parentheses (poor man's button)
 		foreach ($revisionTools as $tool) {

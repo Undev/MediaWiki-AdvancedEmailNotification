@@ -1,0 +1,14 @@
+{
+    "@metadata": {
+        "authors": []
+    },
+
+    "advancedemailnotification_settingsdiff": "Новая правка слева",
+    "advancedemailnotification_categoriesempty": "нет категорий",
+    "advancedemailnotification_page": "Вы получили это письмо, потому что подписаны на изменения данной статьи",
+    "advancedemailnotification_category": "Вы получили это письмо, потому что подписаны на следующие категории: ",
+    "advancedemailnotification_watchlisteditlink": "здесь",
+
+    "advancedemailnotification_emailsubject": "{{pageTitle}} [{{siteName}}]",
+    "advancedemailnotification_enotif_body": "<div class=\"container\">\n        <table class=\"table\">\n            <tbody>\n                <tr>\n                    <td style=\"width: 150px;\">Автор</td>\n                    <td>{{editorLink}}</td>\n                </tr>\n                <tr>\n                    <td>Статья</td>\n                    <td>{{pageLink}}</td>\n                </tr>\n                <tr>\n                    <td>Новая ревизия</td>\n                    <td>{{timestamp}} ({{diffLink}})</td>\n                </tr>\n                <tr>\n                    <td>Категории статьи</td>\n                    <td>{{pageCategories}}</td>\n                </tr>\n            </tbody>\n        </table>\n        {{diffTable}}\n\n        <pre>\n            {{subscribeCondition}}\n            Вы можете отредактировать свой список наблюдения {{editWatchlistLink}}.\n        </pre>\n    </div>"
+}

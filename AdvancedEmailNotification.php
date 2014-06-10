@@ -11,60 +11,52 @@ $wgExtensionCredits['other'][] = array(
 	'description' => 'Adds the ability to watch for categories and nested pages. Replaces the standard message template to a more comfortable with inline diffs.',
 	'version' => 1.0,
 );
-$wgExtensionMessagesFiles[] = dirname(__FILE__) . '/AdvancedEmailNotification.i18n.php';
+$wgMessagesDirs['AdvancedEmailNotification'] = __DIR__ . '/i18n';
+//$wgExtensionMessagesFiles['AdvancedEmailNotification'] = __DIR__ . '/AdvancedEmailNotification.i18n.php';
 
 class AdvancedEmailNotification
 {
+	const AEN_TABLE = 'watchlist';
+	const AEN_TABLE_EXTENDED = 'watchlist_subpages';
+	const AEN_VIEW = 'watchlist_extended';
 	/**
 	 * Used to prevent standard mail notifications
 	 * @var boolean
 	 */
 	private $isOurUserMailer = false;
-
 	/**
 	 * Contains all page categories
 	 * @var array
 	 */
 	private $pageCategories = array();
-
 	/**
 	 * All watchers who followed by category for this page
 	 * @var array multidimensional
 	 */
 	private $categoryWatchers = array();
-
 	/**
 	 * All watchers who immediately followed for this page
 	 * @var array
 	 */
 	private $pageWatchers = array();
-
 	/**
 	 *
 	 * @var
 	 */
 	private $diff;
-
 	private $editor;
-
 	/**
 	 * @var Revision
 	 */
 	private $newRevision;
-
 	/**
 	 * @var Revision
 	 */
 	private $oldRevision;
-
 	/**
 	 * @var Title
 	 */
 	private $title;
-
-	const AEN_TABLE = 'watchlist';
-	const AEN_TABLE_EXTENDED = 'watchlist_subpages';
-	const AEN_VIEW = 'watchlist_extended';
 
 	function __construct()
 	{
@@ -83,31 +75,12 @@ class AdvancedEmailNotification
 		return __CLASS__;
 	}
 
-	public function init()
-	{
-		try {
-			$this->newRevision = RequestContext::getMain()->getWikiPage()->getRevision();
-		} catch (Exception $e) {
-			return false;
-		}
-
-		if (is_null($this->newRevision)) {
-			return false;
-		}
-
-		$this->oldRevision = $this->newRevision->getPrevious();
-		$this->title = $this->newRevision->getTitle();
-		$this->editor = User::newFromId($this->newRevision->getUser());
-
-		return true;
-	}
-
 	public function onGetPreferences(User $user, array &$preferences)
 	{
 
 		$preferences['AdvancedEmailNotification-diff-align'] = array(
 			'type' => 'toggle',
-			'label-message' => 'email-settings-diff', // a system message
+			'label-message' => 'advancedemailnotification_settingsdiff', // a system message
 			'section' => 'personal/email',
 		);
 
@@ -215,6 +188,60 @@ class AdvancedEmailNotification
 		return true;
 	}
 
+	public function init()
+	{
+		try {
+			$this->newRevision = RequestContext::getMain()->getWikiPage()->getRevision();
+		} catch (Exception $e) {
+			return false;
+		}
+
+		if (is_null($this->newRevision)) {
+			return false;
+		}
+
+		$this->oldRevision = $this->newRevision->getPrevious();
+		$this->title = $this->newRevision->getTitle();
+		$this->editor = User::newFromId($this->newRevision->getUser());
+
+		return true;
+	}
+
+	private function getCategories(Title $title)
+	{
+		$categoriesTree = $this->array_values_recursive($title->getParentCategoryTree());
+		$categoriesTree = array_unique($categoriesTree);
+		$categories = array();
+		foreach ($categoriesTree as $category) {
+			if (strpos($category, ':')) {
+				$category = explode(':', $category);
+				$categories[] = $category[1];
+			}
+		}
+
+		return $categories;
+	}
+
+	/**
+	 * Recursive function returns all values from tree of categories.
+	 *
+	 * @param $array
+	 * @return array
+	 */
+	private function array_values_recursive($array)
+	{
+		$arrayKeys = array();
+
+		foreach ($array as $key => $value) {
+			$arrayKeys[] = $key;
+			if (!empty($value)) {
+				$arrayKeys = array_merge($arrayKeys, $this->array_values_recursive($value));
+			}
+		}
+
+		return $arrayKeys;
+	}
+
 	public function onArticleSaveComplete(&$article, &$editor)
 	{
 		if (!$this->init()) {
@@ -245,6 +272,41 @@ class AdvancedEmailNotification
 		return true;
 	}
 
+	/**
+	 * User has defined options in preferences which describe if user notified or not.
+	 * Look for $this->editor to check if need to send to user a copy of email to other users.
+	 *
+	 * @param User $user
+	 * @return bool
+	 */
+	private function isUserNotified(User $user)
+	{
+		global $wgEnotifWatchlist, // Email notifications can be sent for the first change on watched pages (user preference is shown and user needs to opt-in)
+		       $wgShowUpdatedMarker; // Show "Updated (since my last visit)" marker in RC view, watchlist and history
+
+
+		if (!$user->isEmailConfirmed()) {
+			return false;
+		}
+
+		if (!$wgEnotifWatchlist and !$wgShowUpdatedMarker) {
+			return false;
+		}
+
+		// Supporting feature "Email me when a page or file on my watchlist is changed"
+		if (!$user->getOption('enotifwatchlistpages')) {
+			return false;
+		}
+
+		// Supporting feature "Send me copies of emails I send to other users"
+		if (!is_null($this->editor) and $user->getId() == $this->editor->getId()) {
+			if (!$user->getOption('ccmeonemails')) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 
 	/**
 	 * @param User $user
@@ -264,7 +326,7 @@ class AdvancedEmailNotification
 
 		// Create link for edit user watchlist
 		$editWatchlistTitle = Title::makeTitle(NS_SPECIAL, 'Watchlist/Edit');
-		$editWatchlistLink = Linker::link($editWatchlistTitle, wfMessage('watchlist-edit-link')->inContentLanguage()->plain(), array(), array(), array('http'));
+		$editWatchlistLink = Linker::link($editWatchlistTitle, wfMessage('advancedemailnotification_watchlisteditlink')->plain(), array(), array(), array('http'));
 
 		// Create link to this page
 		$pageLink = Linker::link($this->title, null, array(), array(), array('http'));
@@ -278,17 +340,17 @@ class AdvancedEmailNotification
 		if (!empty($pageCategories)) {
 			$pageCategories = implode(', ', $pageCategories);
 		} else {
-			$pageCategories = wfMessage('subscribeCondition-categories-empty')->inContentLanguage()->plain();
+			$pageCategories = wfMessage('advancedemailnotification_categoriesempty')->plain();
 		}
 
 		if (is_null($watchedType)) {
-			$subscribeCondition = wfMessage('subscribeCondition-page')->inContentLanguage()->plain();
+			$subscribeCondition = wfMessage('advancedemailnotification_page')->plain();
 		} else {
 			foreach ($this->categoryWatchers[$user->getId()] as $category) {
 				$categoryTitle = Title::makeTitle(NS_CATEGORY, $category);
 				$categoryWatch[] = Linker::link($categoryTitle, $category, array(), array(), array('http'));
 			}
-			$subscribeCondition = wfMessage('subscribeCondition-category')->inContentLanguage()->plain() . implode(', ', $categoryWatch) . '.';
+			$subscribeCondition = wfMessage('advancedemailnotification_category')->plain() . implode(', ', $categoryWatch) . '.';
 		}
 
 		$dateofrev = RequestContext::getMain()->getLanguage()->userDate(time(), RequestContext::getMain()->getUser());
@@ -313,16 +375,67 @@ class AdvancedEmailNotification
 
 		$to = new MailAddress($user);
 		$from = new MailAddress($this->editor);
-		$subject = strtr(wfMessage('emailsubject')->inContentLanguage()->plain(), $keys);
+		$subject = strtr(wfMessage('advancedemailnotification_emailsubject')->plain(), $keys);
 
-		$css = file_get_contents('resources/mediawiki.action/mediawiki.action.history.diff.css', FILE_USE_INCLUDE_PATH);
-		$body = strtr(wfMessage('enotif_body')->inContentLanguage()->plain(), $keys);
+		$css = file_get_contents('resources/src/mediawiki.action/mediawiki.action.history.diff.css', FILE_USE_INCLUDE_PATH);
+		$body = strtr(wfMessage('advancedemailnotification_enotif_body')->plain(), $keys);
 		$body .= "<style>{$css}</style>";
 
 		$status = UserMailer::send($to, $from, $subject, $body, null, 'text/html; charset=UTF-8');
 
 		if (!empty($status->errors)) {
 			return false;
+		}
+
+
+		return true;
+	}
+
+	private function getDiff($isRearranged = null)
+	{
+		global $wgServer;
+
+		if (!$this->oldRevision or !$this->newRevision) {
+			return false;
+		}
+
+		$differenceEngine = new DifferenceEngineUndev(null, $this->oldRevision->getId(), $this->newRevision->getId());
+		$differenceEngine->setOrder($isRearranged);
+		$differenceEngine->showDiffPage(true);
+
+		$html = RequestContext::getMain()->getOutput()->getHTML();
+		$pattern = "/(?<=href=(\"|'))[^\"']+(?=(\"|'))/";
+		$diff = preg_replace($pattern, "$wgServer$0", $html);
+
+		return $diff;
+	}
+
+	private function updateTimestamp(array $watchers)
+	{
+		if (is_null($this->title)) {
+			return false;
+		}
+
+		$dbw = wfGetDB(DB_MASTER);
+		$fName = __METHOD__;
+		$table = self::AEN_TABLE;
+		$title = $this->title;
+
+		foreach ($watchers as $watcher) {
+			$dbw->onTransactionIdle(
+				function () use ($table, $watcher, $title, $dbw, $fName) {
+					$dbw->begin($fName);
+					$dbw->update($table,
+						array('wl_notificationtimestamp' => $dbw->timestamp()),
+						array(
+							'wl_user' => $watcher,
+							'wl_namespace' => $title->getNamespace(),
+							'wl_title' => $title->getDBkey(),
+						), $fName
+					);
+					$dbw->commit($fName);
+				}
+			);
 		}
 
 		return true;
@@ -368,129 +481,6 @@ class AdvancedEmailNotification
 		}
 
 		return true;
-	}
-
-	private function updateTimestamp(array $watchers)
-	{
-		if (is_null($this->title)) {
-			return false;
-		}
-
-		$dbw = wfGetDB(DB_MASTER);
-		$fName = __METHOD__;
-		$table = self::AEN_TABLE;
-		$title = $this->title;
-
-		foreach ($watchers as $watcher) {
-			$dbw->onTransactionIdle(
-				function () use ($table, $watcher, $title, $dbw, $fName) {
-					$dbw->begin($fName);
-					$dbw->update($table,
-						array('wl_notificationtimestamp' => $dbw->timestamp()),
-						array(
-							'wl_user' => $watcher,
-							'wl_namespace' => $title->getNamespace(),
-							'wl_title' => $title->getDBkey(),
-						), $fName
-					);
-					$dbw->commit($fName);
-				}
-			);
-		}
-
-		return true;
-	}
-
-
-	private function getDiff($isRearranged = null)
-	{
-		global $wgServer;
-
-		if (!$this->oldRevision or !$this->newRevision) {
-			return false;
-		}
-
-		$differenceEngine = new DifferenceEngineUndev(null, $this->oldRevision->getId(), $this->newRevision->getId());
-		$differenceEngine->setOrder($isRearranged);
-		$differenceEngine->showDiffPage(true);
-
-		$html = RequestContext::getMain()->getOutput()->getHTML();
-		$pattern = "/(?<=href=(\"|'))[^\"']+(?=(\"|'))/";
-		$diff = preg_replace($pattern, "$wgServer$0", $html);
-
-		return $diff;
-	}
-
-	private function getCategories(Title $title)
-	{
-		$categoriesTree = $this->array_values_recursive($title->getParentCategoryTree());
-		$categoriesTree = array_unique($categoriesTree);
-		$categories = array();
-		foreach ($categoriesTree as $category) {
-			if (strpos($category, ':')) {
-				$category = explode(':', $category);
-				$categories[] = $category[1];
-			}
-		}
-
-		return $categories;
-	}
-
-	/**
-	 * User has defined options in preferences which describe if user notified or not.
-	 * Look for $this->editor to check if need to send to user a copy of email to other users.
-	 *
-	 * @param User $user
-	 * @return bool
-	 */
-	private function isUserNotified(User $user)
-	{
-		global $wgEnotifWatchlist, // Email notifications can be sent for the first change on watched pages (user preference is shown and user needs to opt-in)
-		       $wgShowUpdatedMarker; // Show "Updated (since my last visit)" marker in RC view, watchlist and history
-
-
-		if (!$user->isEmailConfirmed()) {
-			return false;
-		}
-
-		if (!$wgEnotifWatchlist and !$wgShowUpdatedMarker) {
-			return false;
-		}
-
-		// Supporting feature "Email me when a page or file on my watchlist is changed"
-		if (!$user->getOption('enotifwatchlistpages')) {
-			return false;
-		}
-
-		// Supporting feature "Send me copies of emails I send to other users"
-		if (!is_null($this->editor) and $user->getId() == $this->editor->getId()) {
-			if (!$user->getOption('ccmeonemails')) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-
-	/**
-	 * Recursive function returns all values from tree of categories.
-	 *
-	 * @param $array
-	 * @return array
-	 */
-	private function array_values_recursive($array)
-	{
-		$arrayKeys = array();
-
-		foreach ($array as $key => $value) {
-			$arrayKeys[] = $key;
-			if (!empty($value)) {
-				$arrayKeys = array_merge($arrayKeys, $this->array_values_recursive($value));
-			}
-		}
-
-		return $arrayKeys;
 	}
 }
 
