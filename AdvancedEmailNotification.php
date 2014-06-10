@@ -39,12 +39,7 @@ class AdvancedEmailNotification
 	 * @var array
 	 */
 	private $pageWatchers = array();
-	/**
-	 *
-	 * @var
-	 */
-	private $diff;
-	private $editor;
+
 	/**
 	 * @var Revision
 	 */
@@ -57,6 +52,9 @@ class AdvancedEmailNotification
 	 * @var Title
 	 */
 	private $title;
+
+	private $editor;
+	private $isNewArticle = false;
 
 	function __construct()
 	{
@@ -141,49 +139,11 @@ class AdvancedEmailNotification
 		return true;
 	}
 
-	public function onArticleSave(&$article, &$editor)
+	public function onArticleSave(WikiPage &$article, &$editor)
 	{
 		if (!$this->init()) {
-			return true;
+			$this->isNewArticle = true;
 		}
-
-		// Getting all page categories
-		$this->pageCategories = $this->getCategories($this->title);
-
-		// Initialize Database
-		$dbw = wfGetDB(DB_MASTER);
-
-		// Search for all users who subscribed this page by received categories
-		foreach ($this->pageCategories as $pageCategory) {
-			$res = $dbw->select(array(self::AEN_TABLE), array('wl_user'),
-				array(
-					'wl_title' => $pageCategory,
-					'wl_namespace' => NS_CATEGORY,
-				), __METHOD__
-			);
-
-			// Collect user id and category name which he followed
-			foreach ($res as $row) {
-				$this->categoryWatchers[intval($row->wl_user)][] = $pageCategory;
-			}
-
-			$dbw->freeResult($res);
-		}
-
-		// Search for all users who subscribed this page by direct subscription.
-		$res = $dbw->select(array(self::AEN_TABLE), array('wl_user'),
-			array(
-				'wl_namespace' => $this->title->getNamespace(),
-				'wl_title' => $this->title->getDBkey(),
-				'wl_notificationtimestamp IS NULL',
-			), __METHOD__
-		);
-
-		foreach ($res as $row) {
-			$this->pageWatchers[] = intval($row->wl_user);
-		}
-
-		$dbw->freeResult($res);
 
 		return true;
 	}
@@ -247,6 +207,44 @@ class AdvancedEmailNotification
 		if (!$this->init()) {
 			return true;
 		}
+
+		// Getting all page categories
+		$this->pageCategories = $this->getCategories($this->title);
+
+		// Initialize Database
+		$dbw = wfGetDB(DB_MASTER);
+
+		// Search for all users who subscribed this page by received categories
+		foreach ($this->pageCategories as $pageCategory) {
+			$res = $dbw->select(array(self::AEN_TABLE), array('wl_user'),
+				array(
+					'wl_title' => $pageCategory,
+					'wl_namespace' => NS_CATEGORY,
+				), __METHOD__
+			);
+
+			// Collect user id and category name which he followed
+			foreach ($res as $row) {
+				$this->categoryWatchers[intval($row->wl_user)][] = $pageCategory;
+			}
+
+			$dbw->freeResult($res);
+		}
+
+		// Search for all users who subscribed this page by direct subscription.
+		$res = $dbw->select(array(self::AEN_TABLE), array('wl_user'),
+			array(
+				'wl_namespace' => $this->title->getNamespace(),
+				'wl_title' => $this->title->getDBkey(),
+				'wl_notificationtimestamp IS NULL',
+			), __METHOD__
+		);
+
+		foreach ($res as $row) {
+			$this->pageWatchers[] = intval($row->wl_user);
+		}
+
+		$dbw->freeResult($res);
 
 		if (!empty($this->pageWatchers)) {
 			foreach ($this->pageWatchers as $userId) {
@@ -356,6 +354,9 @@ class AdvancedEmailNotification
 		$dateofrev = RequestContext::getMain()->getLanguage()->userDate(time(), RequestContext::getMain()->getUser());
 		$timeofrev = RequestContext::getMain()->getLanguage()->userTime(time(), RequestContext::getMain()->getUser());
 
+		$content = $this->isNewArticle ? $this->newRevision->getContent()->getTextForSummary(100) :
+			$this->getDiff($user->getOption('AdvancedEmailNotification-diff-align'));
+
 		$keys = array(
 			// For subject
 			'{{siteName}}' => $wgSitename,
@@ -368,7 +369,7 @@ class AdvancedEmailNotification
 			'{{timestamp}}' => $dateofrev . ' ' . $timeofrev,
 			'{{pageCategories}}' => $pageCategories,
 			'{{diffLink}}' => $diffLink,
-			'{{diffTable}}' => $this->getDiff($user->getOption('AdvancedEmailNotification-diff-align')),
+			'{{content}}' => $content,
 			'{{subscribeCondition}}' => $subscribeCondition,
 			'{{editWatchlistLink}}' => $editWatchlistLink,
 		);
